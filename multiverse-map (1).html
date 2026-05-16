@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sector 985 — Radioblade Multiverse Atlas</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Raleway:wght@300;400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#010208;font-family:'Raleway',sans-serif;overflow:hidden;width:100vw;height:100vh;cursor:grab;user-select:none}
+body.dragging{cursor:grabbing}
+#ui-header{position:absolute;top:0;left:0;right:0;padding:16px 24px;z-index:100;background:linear-gradient(to bottom,rgba(1,2,8,.96) 0%,transparent 100%);pointer-events:none}
+#ui-header h1{font-family:'Cinzel',serif;font-size:1.35rem;font-weight:700;color:#e0eaff;letter-spacing:4px;text-transform:uppercase}
+#ui-header p{font-size:.67rem;color:#303870;letter-spacing:2px;text-transform:uppercase;margin-top:3px}
+#zoom-controls{position:absolute;bottom:24px;right:24px;z-index:100;display:flex;flex-direction:column;gap:6px}
+.zoom-btn{width:36px;height:36px;background:rgba(8,12,35,.92);border:1px solid rgba(70,90,170,.3);color:#505890;font-size:18px;cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:all .2s;pointer-events:all}
+.zoom-btn:hover{background:rgba(18,24,70,.95);color:#e84445;border-color:rgba(200,50,50,.4)}
+#hint{position:absolute;bottom:24px;left:24px;z-index:100;font-size:.67rem;color:#222850;letter-spacing:1.5px;text-transform:uppercase;pointer-events:none}
+#legend{position:absolute;top:80px;right:24px;z-index:100;background:rgba(4,6,22,.9);border:1px solid rgba(70,90,170,.2);border-radius:8px;padding:12px 16px;pointer-events:none}
+.li{display:flex;align-items:center;gap:8px;font-size:.67rem;color:#404878;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px}
+.li:last-child{margin-bottom:0}
+.ld{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+#canvas-wrap{position:absolute;inset:0;overflow:hidden}
+#map-stage{position:absolute;width:4000px;height:4000px;transform-origin:0 0}
+.star{position:absolute;border-radius:50%;background:#fff;pointer-events:none}
+.nebula{position:absolute;border-radius:50%;filter:blur(80px);opacity:.055;pointer-events:none}
+.canon{position:absolute;transform:translate(-50%,-50%);cursor:pointer;text-align:center;z-index:20}
+.canon-ring{border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;margin:0 auto;transition:all .3s ease;border:2px solid rgba(200,215,255,.42);background:radial-gradient(circle at 40% 35%,rgba(180,200,255,.1),rgba(4,7,22,.88))}
+.canon-ring.large{width:110px;height:110px}
+.canon-ring.medium{width:80px;height:80px}
+.canon-ring.small{width:60px;height:60px}
+.canon-ring.tiny{width:44px;height:44px;border-width:1.5px;border-style:dashed}
+.canon-ring::before{content:'';position:absolute;inset:-7px;border-radius:50%;border:1px solid rgba(200,215,255,.09);transition:all .3s}
+.canon-inner{border-radius:50%;background:radial-gradient(circle at 35% 35%,rgba(160,185,255,.24),rgba(4,7,28,.95));border:1px solid rgba(190,210,255,.2);display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-weight:600;color:#a0b4e8;line-height:1.15;transition:all .3s;text-align:center;padding:4px}
+.canon-ring.large .canon-inner{width:70px;height:70px;font-size:.54rem}
+.canon-ring.medium .canon-inner{width:50px;height:50px;font-size:.5rem}
+.canon-ring.small .canon-inner{width:37px;height:37px;font-size:.44rem}
+.canon-ring.tiny .canon-inner{width:28px;height:28px;font-size:.4rem}
+.canon:hover .canon-ring{border-color:rgba(232,68,69,.8);box-shadow:0 0 22px rgba(232,68,69,.22)}
+.canon:hover .canon-ring::before{border-color:rgba(232,68,69,.24)}
+.canon:hover .canon-inner{background:radial-gradient(circle at 35% 35%,rgba(200,55,55,.35),rgba(20,5,40,.96));color:#ffc0c0;border-color:rgba(232,68,69,.3)}
+.remnant .canon-ring{border-style:dashed;border-color:rgba(160,175,210,.2);opacity:.5}
+.remnant .canon-inner{background:radial-gradient(circle at 35% 35%,rgba(90,95,115,.18),rgba(4,7,22,.92));color:#556070}
+.remnant .canon-label{color:#404865!important}
+.remnant .canon-sub{color:#283048!important}
+.ida-node .canon-ring{border-color:rgba(255,215,45,.52);background:radial-gradient(circle at 40% 35%,rgba(240,190,0,.07),rgba(4,7,22,.92))}
+.ida-node .canon-inner{background:radial-gradient(circle at 35% 35%,rgba(210,170,0,.42),rgba(10,7,2,.96));color:#ffd880;border-color:rgba(210,170,0,.28)}
+.ida-node .canon-label{color:#b08828!important}
+.ida-node:hover .canon-ring{border-color:rgba(255,215,45,.85);box-shadow:0 0 28px rgba(255,200,0,.18)}
+.obs-node .canon-ring{border-color:rgba(70,170,255,.48)}
+.obs-node .canon-inner{color:#90c4ff;border-color:rgba(70,170,255,.28)}
+.obs-node .canon-label{color:#3a78a8!important}
+.canon-label{margin-top:8px;font-family:'Cinzel',serif;font-weight:600;color:#6070b0;letter-spacing:1.5px;text-transform:uppercase;transition:color .3s;white-space:nowrap}
+.canon-ring.large ~ .canon-label{font-size:.74rem}
+.canon-ring.medium ~ .canon-label{font-size:.67rem}
+.canon-ring.small ~ .canon-label{font-size:.61rem}
+.canon-ring.tiny ~ .canon-label{font-size:.54rem}
+.canon-sub{margin-top:2px;font-size:.57rem;color:#2e3860;letter-spacing:.8px;text-transform:uppercase;transition:color .3s}
+.canon:hover .canon-label{color:#e84445}
+.canon:hover .canon-sub{color:#883840}
+.nexus-label{position:absolute;font-family:'Cinzel',serif;font-weight:700;font-size:.9rem;color:#cc2020;letter-spacing:2px;text-transform:uppercase;text-align:center;pointer-events:none;z-index:15;line-height:1.35;text-shadow:0 0 18px rgba(180,0,0,.45)}
+.sector-bg-label{position:absolute;font-family:'Cinzel',serif;font-weight:700;font-size:3rem;color:rgba(180,200,255,.03);letter-spacing:10px;text-transform:uppercase;pointer-events:none;z-index:3;white-space:nowrap}
+#connections{position:absolute;inset:0;pointer-events:none;z-index:8}
+#nexus-layer{position:absolute;inset:0;pointer-events:none;z-index:6}
+#info-panel{position:absolute;bottom:70px;left:50%;transform:translateX(-50%);background:rgba(4,7,22,.97);border:1px solid rgba(232,68,69,.3);border-radius:8px;padding:18px 26px;min-width:300px;max-width:440px;z-index:200;opacity:0;pointer-events:none;transition:opacity .25s;text-align:center}
+#info-panel.visible{opacity:1;pointer-events:all}
+#info-badge{display:inline-block;padding:3px 10px;border-radius:3px;font-size:.61rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;font-family:'Raleway',sans-serif}
+#info-title{font-family:'Cinzel',serif;font-size:1rem;font-weight:600;color:#e0eaff;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+#info-desc{font-size:.77rem;color:#505888;line-height:1.65;margin-bottom:14px}
+#info-link{display:inline-block;padding:7px 18px;background:rgba(192,24,26,.1);border:1px solid rgba(192,24,26,.38);color:#e84445;font-family:'Raleway',sans-serif;font-size:.71rem;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none;border-radius:4px;cursor:pointer;transition:all .2s;margin-right:8px}
+#info-link:hover{background:rgba(192,24,26,.24);color:#fff}
+#info-close{display:inline-block;padding:7px 14px;background:transparent;border:1px solid rgba(70,90,170,.2);color:#303868;font-family:'Raleway',sans-serif;font-size:.71rem;letter-spacing:1px;text-transform:uppercase;border-radius:4px;cursor:pointer;transition:all .2s}
+#info-close:hover{border-color:rgba(70,90,170,.4);color:#6070b8}
+@keyframes twinkle{0%,100%{opacity:1}50%{opacity:.12}}
+@keyframes nwrithe{0%,100%{opacity:.9}50%{opacity:.55}}
+</style>
+</head>
+<body>
+
+<div id="ui-header">
+  <h1>Sector 985 — Multiverse Atlas</h1>
+  <p>Click any dimension to explore &nbsp;·&nbsp; Scroll to zoom &nbsp;·&nbsp; Drag to pan</p>
+</div>
+
+<div id="legend">
+  <div class="li"><div class="ld" style="background:#a0b4e8;border:1px solid #7090c0"></div>Active dimension</div>
+  <div class="li"><div class="ld" style="background:#404865;border:1px dashed #505878"></div>Remnant (destroyed)</div>
+  <div class="li"><div class="ld" style="background:#ffd880;border:1px solid #b08828"></div>IDA Installation</div>
+  <div class="li"><div class="ld" style="background:#cc2020;opacity:.75"></div>Nexus Anomaly</div>
+</div>
+
+<div id="zoom-controls">
+  <button class="zoom-btn" id="zoom-in">+</button>
+  <button class="zoom-btn" id="zoom-out">−</button>
+  <button class="zoom-btn" id="reset-btn" style="font-size:13px">↺</button>
+</div>
+<div id="hint">Scroll to zoom &nbsp;·&nbsp; Drag to pan</div>
+
+<div id="canvas-wrap">
+  <div id="map-stage">
+    <svg id="nexus-layer" width="4000" height="4000"></svg>
+    <svg id="connections" width="4000" height="4000"></svg>
+    <div class="sector-bg-label" style="top:55px;left:180px">Sector 985</div>
+  </div>
+</div>
+
+<div id="info-panel">
+  <div id="info-badge">Dimension</div>
+  <div id="info-title">Name</div>
+  <div id="info-desc">Description</div>
+  <a id="info-link" href="#">Visit Wiki Page</a>
+  <span id="info-close">Close</span>
+</div>
+
+<script>
+
+// ================================================================
+//  CONFIGURATION — edit this block to customise the map
+// ================================================================
+
+const WIKI_BASE = 'https://radioblade.miraheze.org';
+
+// ----------------------------------------------------------------
+//  DIMENSIONS
+//  To add a new dimension, copy one of the entries below and
+//  paste it at the end of the array (before the closing ] )
+//
+//  Fields:
+//    label  — name shown under the circle (required)
+//    label2 — second line of name (optional, use for long names)
+//    abbr   — short text inside the circle, e.g. 'VV' (required)
+//    sub    — small subtitle under the label (required)
+//    type   — 'normal' | 'remnant' | 'ida' | 'observatory'
+//    size   — 'large' | 'medium' | 'small' | 'tiny'
+//    x, y   — position on the 4000×4000 map canvas
+//    desc   — text shown in the info panel when clicked
+//    link   — wiki page path, e.g. '/wiki/Venturaverse'
+//
+//  TYPES explained:
+//    normal      — standard active dimension (blue-white ring)
+//    remnant     — destroyed dimension (faded dashed ring)
+//    ida         — IDA installation (gold ring)
+//    observatory — IDA outpost (blue ring)
+//
+//  SIZES explained:
+//    large  — central/major locations
+//    medium — significant dimensions
+//    small  — regular dimensions
+//    tiny   — minor/pocket dimensions
+// ----------------------------------------------------------------
+
+const DIMENSIONS = [
+
+  // ── IDA ASSETS ──────────────────────────────────────────────
+  {
+    label:  'IDA Installation',
+    label2: 'TRASH-985',
+    abbr:   'TRASH\n985',
+    sub:    'IDA Base · Sector Hub',
+    type:   'ida',
+    size:   'large',
+    x: 2000, y: 1700,
+    desc:   'The Transdimensional Repository for Anomalous and Supernatural Hazards for Sector 985. Serves as the Inter Dimensional Authority\'s base of operations and contains potential nexus-causing hazards in the sector.',
+    link:   '/wiki/TRASH-985'
+  },
+  {
+    label:  'The Observatory',
+    abbr:   '◉',
+    sub:    'IDA Outpost',
+    type:   'observatory',
+    size:   'medium',
+    x: 1820, y: 1300,
+    desc:   'An IDA observation post monitoring dimensional activity across Sector 985.',
+    link:   '/wiki/The_Observatory'
+  },
+
+  // ── ACTIVE DIMENSIONS ────────────────────────────────────────
+  {
+    label:  'Dawnverse',
+    abbr:   'DW',
+    sub:    'Active Canon',
+    type:   'normal',
+    size:   'medium',
+    x: 2920, y: 860,
+    desc:   'An active dimension in Sector 985. Edit this description on the wiki.',
+    link:   '/wiki/Dawnverse'
+  },
+  {
+    label:  'Regiverse',
+    abbr:   'RV',
+    sub:    'Active Canon',
+    type:   'normal',
+    size:   'small',
+    x: 1130, y: 2460,
+    desc:   'An active dimension in Sector 985. Edit this description on the wiki.',
+    link:   '/wiki/Regiverse'
+  },
+  {
+    label:  'Auraverse',
+    abbr:   'AV',
+    sub:    'Active Canon',
+    type:   'normal',
+    size:   'small',
+    x: 980,  y: 2620,
+    desc:   'An active dimension in Sector 985, at risk from Nexus Anomaly Kaniel.',
+    link:   '/wiki/Auraverse'
+  },
+  {
+    label:  'Skullverse',
+    abbr:   'SK',
+    sub:    'Active Canon',
+    type:   'normal',
+    size:   'small',
+    x: 1200, y: 2680,
+    desc:   'An active dimension in Sector 985, at risk from Nexus Anomaly Kaniel.',
+    link:   '/wiki/Skullverse'
+  },
+  {
+    label:  'Scollyverse',
+    abbr:   'SV',
+    sub:    'Active Canon',
+    type:   'normal',
+    size:   'small',
+    x: 960,  y: 2840,
+    desc:   'An active dimension in Sector 985. Edit this description on the wiki.',
+    link:   '/wiki/Scollyverse'
+  },
+  {
+    label:  'Imperaverse',
+    abbr:   'IV',
+    sub:    'Active Canon',
+    type:   'normal',
+    size:   'small',
+    x: 1320, y: 2820,
+    desc:   'An active dimension in Sector 985. Edit this description on the wiki.',
+    link:   '/wiki/Imperaverse'
+  },
+  {
+    label:  'Venturaverse',
+    abbr:   'VV',
+    sub:    'Active Canon',
+    type:   'normal',
+    size:   'medium',
+    x: 1160, y: 2980,
+    desc:   'Home canon of Bingus Coolman and the PIE series. Edit this description on the wiki.',
+    link:   '/wiki/Venturaverse'
+  },
+  {
+    label:  'Elfverse',
+    abbr:   'EV',
+    sub:    'Active Canon',
+    type:   'normal',
+    size:   'small',
+    x: 1400, y: 2980,
+    desc:   'An active dimension in Sector 985. Edit this description on the wiki.',
+    link:   '/wiki/Elfverse'
+  },
+  {
+    label:  'Stoneworks',
+    abbr:   'SW',
+    sub:    'Active Canon',
+    type:   'normal',
+    size:   'medium',
+    x: 3060, y: 2980,
+    desc:   'The Stoneworks Minecraft server dimension. Location of the Aether Saga and the Vampirion Crisis. Currently threatened by Nexus Anomaly Wyyrma.',
+    link:   '/wiki/Stoneworks'
+  },
+
+  // ── REMNANTS (destroyed dimensions) ─────────────────────────
+  {
+    label:  'Fazbear Pocket',
+    label2: 'Dimension',
+    abbr:   'FPD',
+    sub:    'Remnant',
+    type:   'remnant',
+    size:   'tiny',
+    x: 1260, y: 3140,
+    desc:   'A destroyed pocket dimension. Only a remnant remains, destabilised by the Nexus Anomaly Kaniel.',
+    link:   '/wiki/Fazbear_Pocket_Dimension'
+  },
+  {
+    label:  'Tanukiverse',
+    label2: 'Remnant',
+    abbr:   'TK',
+    sub:    'Remnant',
+    type:   'remnant',
+    size:   'small',
+    x: 900,  y: 3100,
+    desc:   'A destroyed dimension. Only a remnant remains in the wake of the Nexus Anomaly Kaniel.',
+    link:   '/wiki/Tanukiverse'
+  },
+
+  // ── ADD NEW DIMENSIONS BELOW THIS LINE ──────────────────────
+  // Copy and paste one of the entries above, then change the values.
+  // Example:
+  // {
+  //   label:  'New Dimension',
+  //   abbr:   'ND',
+  //   sub:    'Active Canon',
+  //   type:   'normal',
+  //   size:   'small',
+  //   x: 2400, y: 2200,
+  //   desc:   'Description of the new dimension.',
+  //   link:   '/wiki/New_Dimension'
+  // },
+
+];
+
+// ----------------------------------------------------------------
+//  CONNECTIONS
+//  Lines drawn between dimensions on the map.
+//  Use the 'label' value of each dimension.
+//  Format: ['Label A', 'Label B']
+// ----------------------------------------------------------------
+
+const CONNECTIONS = [
+  ['IDA Installation', 'The Observatory'],
+  ['IDA Installation', 'Dawnverse'],
+  ['IDA Installation', 'Venturaverse'],
+  ['IDA Installation', 'Stoneworks'],
+];
+
+// ----------------------------------------------------------------
+//  NEXUS ANOMALIES
+//  The corrupting forces eating into the sector.
+//
+//  Fields:
+//    label, label2 — two lines of text shown on map
+//    x, y          — centre of the corruption zone
+//    rx, ry        — horizontal and vertical radius of the zone
+//    color         — hex colour of the corruption (dark red recommended)
+// ----------------------------------------------------------------
+
+const NEXUS_ANOMALIES = [
+  {
+    label:  'NEXUS ANOMALY',
+    label2: '(KANIEL)',
+    x: 1180, y: 3260,
+    rx: 580,  ry: 340,
+    color: '#880000'
+  },
+  {
+    label:  'NEXUS ANOMALY',
+    label2: '(WYYRMA)',
+    x: 3060, y: 3220,
+    rx: 380,  ry: 260,
+    color: '#660000'
+  },
+];
+
+// ================================================================
+//  END OF CONFIGURATION — do not edit below this line
+// ================================================================
+
+const stage   = document.getElementById('map-stage');
+const svgConn = document.getElementById('connections');
+const svgNex  = document.getElementById('nexus-layer');
+const wrap    = document.getElementById('canvas-wrap');
+const panel   = document.getElementById('info-panel');
+
+let scale = 0.28, ox = 0, oy = 0;
+let drag = false, sx, sy, sox, soy;
+
+function applyT() {
+  stage.style.transform = `translate(${ox}px,${oy}px) scale(${scale})`;
+}
+
+function centerView() {
+  scale = 0.28;
+  ox = wrap.clientWidth  / 2 - 2000 * scale;
+  oy = wrap.clientHeight / 2 - 1900 * scale;
+  applyT();
+}
+
+// Stars
+function makeStars() {
+  for (let i = 0; i < 600; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const z = Math.random() < 0.85 ? Math.random() * 1.5 + 0.3 : Math.random() * 2.5 + 1;
+    s.style.cssText = `width:${z}px;height:${z}px;left:${Math.random()*4000}px;top:${Math.random()*4000}px;opacity:${Math.random()*.6+.1};animation:twinkle ${2+Math.random()*5}s ${Math.random()*5}s ease-in-out infinite`;
+    stage.appendChild(s);
+  }
+}
+
+// Nebulas
+function makeNebulas() {
+  [
+    {x:1500,y:700, w:900,h:700,c:'#1a2266'},
+    {x:2400,y:500, w:700,h:600,c:'#220f44'},
+    {x:800, y:1400,w:600,h:500,c:'#112244'},
+    {x:2800,y:1700,w:500,h:400,c:'#221133'},
+    {x:1000,y:2200,w:900,h:700,c:'#330011'},
+    {x:2600,y:2600,w:800,h:600,c:'#1a0011'},
+  ].forEach(n => {
+    const el = document.createElement('div');
+    el.className = 'nebula';
+    el.style.cssText = `left:${n.x}px;top:${n.y}px;width:${n.w}px;height:${n.h}px;background:${n.c}`;
+    stage.insertBefore(el, svgNex);
+  });
+}
+
+// Nexus zones
+function makeNexus() {
+  const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+  defs.innerHTML = '<filter id="nb"><feGaussianBlur stdDeviation="40"/></filter>';
+  svgNex.appendChild(defs);
+
+  NEXUS_ANOMALIES.forEach(nz => {
+    // Outer glow
+    const glow = document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+    glow.setAttribute('cx',nz.x); glow.setAttribute('cy',nz.y);
+    glow.setAttribute('rx',nz.rx+140); glow.setAttribute('ry',nz.ry+90);
+    glow.setAttribute('fill',nz.color); glow.setAttribute('opacity','0.05');
+    glow.setAttribute('filter','url(#nb)');
+    svgNex.appendChild(glow);
+
+    // Tentacles
+    for (let i = 0; i < 7; i++) {
+      const angle = (i / 7) * Math.PI * 2 + Math.random() * 0.5;
+      const len   = nz.rx * 0.7 + Math.random() * nz.rx * 0.6;
+      const cx    = nz.x + Math.cos(angle) * nz.rx * 0.35;
+      const cy    = nz.y + Math.sin(angle) * nz.ry * 0.35;
+      const ex    = nz.x + Math.cos(angle) * len;
+      const ey    = nz.y + Math.sin(angle) * (len * (nz.ry / nz.rx));
+      const cpx   = cx + (ex - cx) * 0.5 + Math.cos(angle + 1.3) * 70;
+      const cpy   = cy + (ey - cy) * 0.5 + Math.sin(angle + 1.3) * 70;
+      const path  = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d',`M${cx},${cy} Q${cpx},${cpy} ${ex},${ey}`);
+      path.setAttribute('stroke', nz.color);
+      path.setAttribute('stroke-width', 8 + Math.random() * 14);
+      path.setAttribute('stroke-opacity', 0.1 + Math.random() * 0.1);
+      path.setAttribute('fill','none');
+      path.setAttribute('stroke-linecap','round');
+      path.style.animation = `nwrithe ${5+Math.random()*6}s ${Math.random()*4}s ease-in-out infinite`;
+      svgNex.appendChild(path);
+    }
+
+    // Core
+    const core = document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+    core.setAttribute('cx',nz.x); core.setAttribute('cy',nz.y);
+    core.setAttribute('rx',nz.rx); core.setAttribute('ry',nz.ry);
+    core.setAttribute('fill',nz.color); core.setAttribute('opacity','0.08');
+    svgNex.appendChild(core);
+
+    // Label
+    const lbl = document.createElement('div');
+    lbl.className = 'nexus-label';
+    lbl.style.left = (nz.x - 130) + 'px';
+    lbl.style.top  = (nz.y + nz.ry - 10) + 'px';
+    lbl.style.width = '260px';
+    lbl.innerHTML = nz.label + '<br>' + nz.label2;
+    stage.appendChild(lbl);
+  });
+}
+
+// Connections
+function makeConnections() {
+  const map = {};
+  DIMENSIONS.forEach(d => map[d.label] = d);
+  CONNECTIONS.forEach(([a, b]) => {
+    const da = map[a], db = map[b];
+    if (!da || !db) return;
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',da.x); line.setAttribute('y1',da.y);
+    line.setAttribute('x2',db.x); line.setAttribute('y2',db.y);
+    line.setAttribute('stroke','rgba(100,120,200,.13)');
+    line.setAttribute('stroke-width','1.5');
+    line.setAttribute('stroke-dasharray','8 14');
+    svgConn.appendChild(line);
+  });
+}
+
+// Canon nodes
+function makeNodes() {
+  DIMENSIONS.forEach(d => {
+    const el = document.createElement('div');
+    const classes = ['canon'];
+    if (d.type === 'remnant')     classes.push('remnant');
+    if (d.type === 'ida')         classes.push('ida-node');
+    if (d.type === 'observatory') classes.push('obs-node');
+    el.className = classes.join(' ');
+    el.style.left = d.x + 'px';
+    el.style.top  = d.y + 'px';
+
+    const abbr = d.abbr.replace(/\n/g, '<br>');
+    const lbl  = d.label + (d.label2 ? '<br>' + d.label2 : '');
+    el.innerHTML = `
+      <div class="canon-ring ${d.size}">
+        <div class="canon-inner">${abbr}</div>
+      </div>
+      <div class="canon-label">${lbl}</div>
+      <div class="canon-sub">${d.sub}</div>`;
+
+    el.addEventListener('click', e => { e.stopPropagation(); showInfo(d); });
+    stage.appendChild(el);
+  });
+}
+
+// Badge colours by type
+const BADGE = {
+  ida:         { text:'IDA Installation',  color:'#b08828', bg:'rgba(70,44,0,.45)' },
+  observatory: { text:'IDA Outpost',       color:'#3a78a8', bg:'rgba(0,25,70,.45)' },
+  normal:      { text:'Active Dimension',  color:'#6878c0', bg:'rgba(18,26,70,.45)' },
+  remnant:     { text:'Remnant',           color:'#606880', bg:'rgba(20,22,35,.6)'  },
+};
+
+function showInfo(d) {
+  const b = BADGE[d.type] || BADGE.normal;
+  const badge = document.getElementById('info-badge');
+  badge.textContent   = b.text;
+  badge.style.color   = b.color;
+  badge.style.background = b.bg;
+  badge.style.border  = `1px solid ${b.color}55`;
+  document.getElementById('info-title').textContent = d.label + (d.label2 ? ' ' + d.label2 : '');
+  document.getElementById('info-desc').textContent  = d.desc;
+  const link = document.getElementById('info-link');
+  link.href = WIKI_BASE + d.link;
+  link.textContent = 'Visit Wiki Page';
+  panel.classList.add('visible');
+}
+
+document.getElementById('info-close').addEventListener('click', () => panel.classList.remove('visible'));
+wrap.addEventListener('click', () => panel.classList.remove('visible'));
+
+// Pan — mouse
+wrap.addEventListener('mousedown', e => {
+  drag = true; sx = e.clientX; sy = e.clientY; sox = ox; soy = oy;
+  document.body.classList.add('dragging');
+});
+window.addEventListener('mousemove', e => {
+  if (!drag) return;
+  ox = sox + (e.clientX - sx); oy = soy + (e.clientY - sy); applyT();
+});
+window.addEventListener('mouseup', () => { drag = false; document.body.classList.remove('dragging'); });
+
+// Pan — touch
+wrap.addEventListener('touchstart', e => {
+  if (e.touches.length !== 1) return;
+  drag = true; sx = e.touches[0].clientX; sy = e.touches[0].clientY; sox = ox; soy = oy;
+}, { passive: true });
+wrap.addEventListener('touchmove', e => {
+  if (!drag || e.touches.length !== 1) return;
+  ox = sox + (e.touches[0].clientX - sx); oy = soy + (e.touches[0].clientY - sy); applyT();
+}, { passive: true });
+wrap.addEventListener('touchend', () => { drag = false; });
+
+// Zoom — scroll
+wrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r  = wrap.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  const ns = Math.min(2, Math.max(0.1, scale * (e.deltaY > 0 ? 0.9 : 1.1)));
+  ox = mx - (mx - ox) * (ns / scale);
+  oy = my - (my - oy) * (ns / scale);
+  scale = ns; applyT();
+}, { passive: false });
+
+// Zoom buttons
+function zoomTo(factor) {
+  const cx = wrap.clientWidth / 2, cy = wrap.clientHeight / 2;
+  const ns = Math.min(2, Math.max(0.1, scale * factor));
+  ox = cx - (cx - ox) * (ns / scale);
+  oy = cy - (cy - oy) * (ns / scale);
+  scale = ns; applyT();
+}
+document.getElementById('zoom-in').addEventListener('click',  () => zoomTo(1.25));
+document.getElementById('zoom-out').addEventListener('click', () => zoomTo(0.8));
+document.getElementById('reset-btn').addEventListener('click', centerView);
+
+// Build
+makeStars();
+makeNebulas();
+makeNexus();
+makeConnections();
+makeNodes();
+centerView();
+</script>
+</body>
+</html>
